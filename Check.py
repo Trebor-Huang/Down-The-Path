@@ -20,7 +20,39 @@ Nat Natural numbers
 ... recursion
 
 U   Universe (Currently spartan McBride style)
+
+===== HOTT Syntax =====
+("ap", ("Bind", *vars, tm), *eqs)
+    Transport.
 """
+
+def fun(a, b):
+    return ("Π", a, ("Bind", "_", b))
+
+def pr(a, b):
+    return ("Σ", a, ("Bind", "_", b))
+
+def refl(tm):
+    return ("ap", ("Bind", tm))
+
+def Id(ty, tm1, tm2):
+    return ("@", ("fst", refl(ty)), (",", ("Bind", "_", ty), tm1, tm2))
+
+def isContr(A):
+    return subst(("Σ", ("Var", "isContr_A"), ("Bind", "_x",
+        ("Π", ("Var", "isContr_A"), ("Bind", "_y",
+            Id(("Var", "isContr_A"), ("Var", "_x"), ("Var", "_y")))))),
+        {"isContr_A" : A})
+
+def OneOneCorr(A, B):
+    vA = ("Var", "Corr_A")
+    vB = ("Var", "Corr_B")
+    return subst(("Σ", fun(vA, fun(vB, ("U",))), ("Bind", "_R",
+        pr(
+            ("Π", vA, ("Bind", "_a", isContr(("Σ", vB, ("Bind", "_b", ("@", ("@", ("Var", "_R"), ("Var", "_a")), ("Var", "_b"))))))),
+            ("Π", vB, ("Bind", "_b", isContr(("Σ", vA, ("Bind", "_a", ("@", ("@", ("Var", "_R"), ("Var", "_a")), ("Var", "_b")))))))
+        ))),
+        {"Corr_A" : A, "Corr_B" : B})
 
 def normalize(tm):
     match tm:
@@ -162,13 +194,13 @@ def infer(ctx, tm):
             raise ValueError("Unexpected term: " + pretty(tm))
 
 if __name__ == "__main__":
-    Id = ("λ", ("U",), ("Bind", "t",
+    Idty = ("λ", ("U",), ("Bind", "t",
         ("λ", ("Var", "t"), ("Bind", "x",
         ("Var", "x")))))
-    print(pretty(Id))
-    TId = infer({}, Id)
+    print(pretty(Idty))
+    TId = infer({}, Idty)
     print(pretty(TId))
-    IdId = ("@", ("@", Id, TId), Id)
+    IdId = ("@", ("@", Idty, TId), Idty)
     TIdId = infer({}, IdId)
     print(pretty(TIdId))
     nIdId = normalize(IdId)
