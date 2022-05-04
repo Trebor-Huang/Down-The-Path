@@ -12,7 +12,7 @@ fresh = 0  # Global counter for fresh variables.
 def fresh_var(name="x"):
     global fresh
     fresh += 1
-    return name + str(fresh)
+    return name + "#" + str(fresh)
 
 def subst(t, subs : dict):
     """
