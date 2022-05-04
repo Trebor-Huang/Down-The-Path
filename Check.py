@@ -14,7 +14,10 @@ snd Second projection
 0   Empty
 1   Unit
 2   Bool
-.. intro and elim rules
+... intro and elim rules
+
+Nat Natural numbers
+... recursion
 
 U   Universe (Currently spartan McBride style)
 """
@@ -71,6 +74,8 @@ def conv(tm1, tm2, ty):
                 normalize(("fst", tm2)), dom)
             conv(normalize(("snd", tm1)),
                 normalize(("snd", tm2)), subst(cod, {x:nfsttm1}))
+        case ("cons", ("0" | "1")):
+            return
         case _:
             raise ValueError("Unexpected type: " + pretty(ty))
 
@@ -88,11 +93,10 @@ def ensureΠΣ(con, ty):
 # Global constants.
 constants = dict()
 constants["0"] = ("U",)
+constants["absurd"] = ("Π", ("0",), ("Bind", "_",
+    ("Π", ("U",), ("Bind", "T", ("Var", "T")))))
 constants["1"] = ("U",)
 constants["*"] = ("con", "1")
-constants["2"] = ("U",)
-constants["tt"] = ("con", "2")
-constants["ff"] = ("con", "2")
 
 def infer(ctx, tm):
     match tm:

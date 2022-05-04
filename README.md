@@ -24,12 +24,12 @@ A spartan implementation of H.O.T.T.
 > I've been walking all night long, but  
 > I don't know where to call my home."
 
-- Start out with 0,1,2,+,∑,∏,U. Define `1-1-Corr`.
-- Add `Id` and `ap`.
-- Inductive types.
-- Quotients without HIT?
-- Higher inductive types.
-- Inductive families?!
+- [X] Start out with 0,1,∑,∏,U. (2, Nat are slightly more complicated.)
+- [ ] Add `Id` and `ap`. Define `1-1-Corr`.
+- [ ] Inductive types.
+- [ ] Quotients without HIT?
+- [ ] Higher inductive types.
+- [ ] Inductive families?!
 
 ## Implementation
 
