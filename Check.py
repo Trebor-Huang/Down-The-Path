@@ -190,6 +190,11 @@ def infer(ctx, tm):
             return constants[con]
         case ("U",):
             return ("U",)
+        case ("ap", ("Bind", *vars, arg), *eqs):
+            temp_ctx = dict()
+            for var, eq in zip(vars, eqs):
+                pass
+            pass
         case _:
             raise ValueError("Unexpected term: " + pretty(tm))
 

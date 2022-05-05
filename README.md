@@ -31,7 +31,7 @@ A spartan implementation of H.O.T.T.
 - [ ] Higher inductive types.
 - [ ] Inductive families?!
 
-Thorsten Altenkirch et al. in there original presentation stated that there are "philosophical, syntactic, and semantic" reasons that they used an `newtype` style approach when dealing with univalence, having `p↑↓ ≡ p`. I have no philosophical objections to these unless someone convinces me (which they didn't attempt); I anticipate some strictness issues that may have to be worked around by weird tricks
+Thorsten Altenkirch et al. in their original presentation stated that there are "philosophical, syntactic, and semantic" reasons that they used an `newtype` style approach when dealing with univalence, having `p↑↓ ≡ p`. I have no philosophical objections to these unless someone convinces me (which they didn't attempt); I anticipate some strictness issues that may have to be worked around by weird tricks
 e.g. [Scott's trick](https://en.wikipedia.org/wiki/Scott's_trick), but this is purely semantic, and I don't need to worry yet; There may be confluence / termination / subject reduction problems, but I cannot yet see why. So I'm going to get rid of this `↑` `↓` stuff.
 
 Also, I am going to define `Id` in terms of `ap`. This makes the internal representation easier to deal with.
