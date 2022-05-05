@@ -235,3 +235,7 @@ if __name__ == "__main__":
         ("fst", ("Var", "p"))))))))
     print(pretty(fst))
     print(pretty(infer({}, fst)))
+
+    corr = OneOneCorr(("Var", "A"), ("Var", "A"))
+    print(pretty(corr))
+    print(pretty(infer({'A': ("U",)}, corr)))

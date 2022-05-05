@@ -12,7 +12,7 @@ fresh = 0  # Global counter for fresh variables.
 def fresh_var(name="x"):
     global fresh
     fresh += 1
-    return name + "#" + str(fresh)
+    return name.split("#")[0] + "#" + str(fresh)
 
 def subst(t, subs : dict):
     """
@@ -38,15 +38,25 @@ def strip_parens(str):
         return str[1:-1]
     return str
 
+def pretty_Var(v):
+    name = v.split("#")
+    if len(name) == 1:
+        return v
+    else:
+        return name[0] + name[1].translate(str.maketrans("0123456789","₀₁₂₃₄₅₆₇₈₉"))
+
 def pretty(t):
     """
     Pretty print a term.
     """
+    if isinstance(t, str):
+        return t
     match t:
         case ("Var", x):
-            return x
+            return pretty_Var(x)
         case ("Bind", *xs, t1):
-            return "(" + " ".join(xs) + " => " + strip_parens(pretty(t1)) + ")"
+            return "(" + " ".join(map(pretty_Var, xs)) +\
+                " => " + strip_parens(pretty(t1)) + ")"
         case (cons,):
             return cons
         case (cons, t):
@@ -54,7 +64,7 @@ def pretty(t):
         case (*ts,):
             return "(" + " ".join(map(pretty, ts)) + ")"
         case _:
-            return str(t)
+            raise ValueError("Unexpected term: " + str(t))
 
 # def to_lazy(t):
 #     """
