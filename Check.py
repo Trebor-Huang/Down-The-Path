@@ -22,9 +22,17 @@ Nat Natural numbers
 U   Universe (Currently spartan McBride style)
 
 ===== HOTT Syntax =====
-("ap", ("Bind", *vars, tm), *eqs)
-    Transport.
+("ap", ("Bind", *vars, tm), *tys, *left, *right, *eqs)
+    Transport. *tys is a sort of telescope.
 """
+
+def untelescope(vars, tys):
+    for n, ty in enumerate(tys):
+        match ty:
+            case ("Bind", *varn, body):
+                yield subst(body, {varn[i]:("Var", vars[i]) for i in range(n)})
+            case _:
+                raise Exception("Expected telescope, got {}".format(ty))
 
 def fun(a, b):
     return ("Π", a, ("Bind", "_", b))
@@ -190,10 +198,24 @@ def infer(ctx, tm):
             return constants[con]
         case ("U",):
             return ("U",)
-        case ("ap", ("Bind", *vars, arg), *eqs):
+        case ("ap", ("Bind", *vars, arg), *lreqs):
+            tys, left, right, eqs =\
+                lreqs[0:len(vars)], lreqs[len(vars):len(vars)*2],\
+                lreqs[len(vars)*2:len(vars)*3], lreqs[len(vars)*3:]
             temp_ctx = dict()
-            for var, eq in zip(vars, eqs):
+            for i,v in enumerate(vars):
+                temp_ctx[v] = ctx[v] if v in ctx else None
+                ctx[v] = tys[i]
+            C = infer(ctx, arg)
+            for v in temp_ctx:
+                if temp_ctx[v] is not None:
+                    ctx[v] = temp_ctx[v]
+                else:
+                    del ctx[v]
+            for i in range(len(vars)):
                 pass
+                # TODO check eqs[i] : Id_{x...(i-1) => tys[i]}^{eqs...(i-1)}(left[i],right[i])
+            # TODO return Id_..C(t[left], t[right])
             pass
         case _:
             raise ValueError("Unexpected term: " + pretty(tm))

@@ -25,9 +25,10 @@ A spartan implementation of H.O.T.T.
 > I don't know where to call my home."
 
 - [X] Start out with 0,1,∑,∏,U. (2, Nat are slightly more complicated.)
-- [ ] Add `Id` and `ap`. Define `1-1-Corr`.
+- [X] Add `Id` and `ap`. Define `1-1-Corr`.
+- [ ] Add typechecking and reduction rules for `ap`.
+- [ ] Symmetries......
 - [ ] Inductive types.
-- [ ] Quotients without HIT?
 - [ ] Higher inductive types.
 - [ ] Inductive families?!
 
