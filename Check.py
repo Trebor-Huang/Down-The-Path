@@ -22,10 +22,11 @@ Nat Natural numbers
 U   Universe (Currently spartan McBride style)
 
 ===== HOTT Syntax =====
+The (*tys, *left, *right, *eqs) cuple stands for a identity telescope.
+
 ("Id", ("Bind", *vars, ty), *tys, *left, *right, *eqs, l, r)
 
 ("ap", ("Bind", *vars, tm), *tys, *left, *right, *eqs)
-    Transport. *tys is a sort of telescope.
 """
 
 def untelescope(vars, tys):
@@ -88,7 +89,37 @@ def normalize(tm):
                     return tm2
                 case n:
                     return ("snd", n)
+        case ("Id", ("Bind", *vars, idty), *tylreqs, LHS, RHS):
+            tys, left, right, eqs =\
+                tylreqs[0:len(vars)], tylreqs[len(vars):len(vars)*2],\
+                tylreqs[len(vars)*2:len(vars)*3], tylreqs[len(vars)*3:]
+            match idty:
+                case ("Σ", dom, ("Bind", x, cod)):
+                    return ("Σ",
+                        ("Id", ("Bind", *vars, dom), *tylreqs, ("fst", LHS), ("fst", RHS)),
+                        ("Bind", x,
+                            ("Id", ("Bind", *vars, x, cod),
+                                *tys, ("Bind", *vars, x, dom),
+                                *left, ("fst", LHS),
+                                *right, ("fst", RHS),
+                                *eqs, ("Var", x),
+                                ("snd", LHS), ("snd", RHS))))
+                case ("Π", dom, ("Bind", x, cod)):
+                    pass
+            raise Exception("Not supported.", pretty(tm))
         case ("ap", ("Bind", *vars, aptm), *tylreqs):
+            tys, left, right, eqs =\
+                tylreqs[0:len(vars)], tylreqs[len(vars):len(vars)*2],\
+                tylreqs[len(vars)*2:len(vars)*3], tylreqs[len(vars)*3:]
+            match aptm:
+                case (",", ty, tm1, tm2):
+                    pass
+                case ("fst", pair):
+                    return ("fst",
+                        ("ap", ("Bind", *vars, pair), *tylreqs))
+                case ("snd", pair):
+                    return ("snd",
+                        ("ap", ("Bind", *vars, pair), *tylreqs))
             raise Exception("Not supported.", pretty(tm))
         case (cons, *ts):
             return (cons, *(normalize(t) for t in ts))
@@ -298,3 +329,7 @@ if __name__ == "__main__":
     corr = OneOneCorr(("Var", "A"), ("Var", "A"))
     print(pretty(corr))
     print(pretty(infer({'A': ("U",)}, corr)))
+
+    rf = refl(("Var", "a"))
+    print(pretty(rf))
+    print(pretty(infer({'A': ("U",), 'a': ("Var", "A")}, rf)))
