@@ -34,6 +34,10 @@ def untelescope(vars, tys):
             case _:
                 raise Exception("Expected telescope, got {}".format(ty))
 
+def telescope(vars, tys):
+    for n, ty in enumerate(tys):
+        yield ("Bind", *(vars[:n]), ty)
+
 def fun(a, b):
     return ("Π", a, ("Bind", "_", b))
 
@@ -93,8 +97,6 @@ def conv(tm1, tm2, ty):
     match normalize(ty):
         case ("U",):
             match tm1, tm2:
-                case ("U",), ("U",):
-                    return
                 case ("Π", dom1, ("Bind", x1, cod1)),\
                     ("Π", dom2, ("Bind", x2, cod2)):
                     conv(dom1, dom2, ("U",))
@@ -103,7 +105,7 @@ def conv(tm1, tm2, ty):
                     ("Σ", dom2, ("Bind", x2, cod2)):
                     conv(dom1, dom2, ("U",))
                     conv(cod1, subst(cod2,{x2:("Var",x1)}), ("U",))
-                case _ if tm1 != tm2:
+                case _:
                     raise ValueError("Type mismatch.", pretty(tm1), pretty(tm2))
         case ("Π", _, ("Bind", x, cod)):
             conv(normalize(("@",tm1,("Var",x))),
@@ -213,10 +215,12 @@ def infer(ctx, tm):
                 else:
                     del ctx[v]
             for i in range(len(vars)):
-                pass
-                # TODO check eqs[i] : Id_{x...(i-1) => tys[i]}^{eqs...(i-1)}(left[i],right[i])
-            # TODO return Id_..C(t[left], t[right])
-            pass
+                tyeqi = infer(ctx, eqs[i])
+                tyexp = ("@", ("@", ("fst", ("ap", tys[i], *left[:i], *right[:i], *eqs[:i])), left[i]), right[i])
+                conv(tyeqi, tyexp, ("U",))
+            return ("@", ("@", ("fst", ("ap", ("Bind", *vars, C), *lreqs)),
+                subst(arg, {vars[i]:left[i] for i in range(len(vars))})),
+                subst(arg, {vars[i]:right[i] for i in range(len(vars))}))
         case _:
             raise ValueError("Unexpected term: " + pretty(tm))
 
