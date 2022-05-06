@@ -66,6 +66,20 @@ def pretty(t):
         case _:
             raise ValueError("Unexpected term: " + str(t))
 
+def freevar(term):
+    """
+    Return a set of free variables in term.
+    """
+    match term:
+        case ("Var", x):
+            return {x}
+        case ("Bind", *xs, t):
+            return freevar(t) - set(xs)
+        case (cons, *ts):
+            return set.union(*(freevar(t) for t in ts))
+        case _:
+            raise ValueError("Unexpected term: " + str(term))
+
 # def to_lazy(t):
 #     """
 #     Convert a term to a lazy tree.

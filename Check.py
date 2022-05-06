@@ -29,17 +29,9 @@ The (*tys, *left, *right, *eqs) cuple stands for a identity telescope.
 ("ap", ("Bind", *vars, tm), *tys, *left, *right, *eqs)
 """
 
-def untelescope(vars, tys):
-    for n, ty in enumerate(tys):
-        match ty:
-            case ("Bind", *varn, body):
-                yield subst(body, {varn[i]:("Var", vars[i]) for i in range(n)})
-            case _:
-                raise Exception("Expected telescope, got {}".format(ty))
-
-def telescope(vars, tys):
-    for n, ty in enumerate(tys):
-        yield ("Bind", *(vars[:n]), ty)
+def tele(tylreqs):
+    l = len(tylreqs)//4
+    return tylreqs[:l], tylreqs[l:2*l], tylreqs[2*l:3*l], tylreqs[3*l:]
 
 def fun(a, b):
     return ("Π", a, ("Bind", "_", b))
@@ -69,69 +61,70 @@ def OneOneCorr(A, B):
         ))),
         {"Corr_A" : A, "Corr_B" : B})
 
-def normalize(tm):
+def rewrite(tm):
     match tm:
-        case ("@", fun, arg):
-            match normalize(fun):
-                case ("λ", _, ("Bind", x, body)):
-                    return normalize(subst(body, {x:arg}))
-                case nfun:
-                    return ("@", nfun, normalize(arg))
-        case ("fst", pair):
-            match normalize(pair):
-                case (",", _, tm1, _):
-                    return tm1
-                case n:
-                    return ("fst", n)
-        case ("snd", pair):
-            match normalize(pair):
-                case (",", _, _, tm2):
-                    return tm2
-                case n:
-                    return ("snd", n)
-        case ("Id", ("Bind", *vars, idty), *tylreqs, LHS, RHS):
-            tys, left, right, eqs =\
-                tylreqs[0:len(vars)], tylreqs[len(vars):len(vars)*2],\
-                tylreqs[len(vars)*2:len(vars)*3], tylreqs[len(vars)*3:]
-            match idty:
+        case ("@", ("λ", _, ("Bind", x, body)), arg):
+            return subst(body, {x:arg})
+        case ("fst", (",", _, tm1, _)):
+            return tm1
+        case ("snd", (",", _, _, tm2)):
+            return tm2
+        case ("Id", ("Bind", *vars, ty), *scope, lhs, rhs):
+            tys, left, right, eqs = tele(scope)
+            fv = freevar(ty)  # First try to redact the last free variable.
+            if len(vars) > 0 and vars[-1] not in fv:
+                return ("Id", ("Bind", *vars[:-1], ty),
+                    *tys[:-1],
+                    *left[:-1],
+                    *right[:-1],
+                    *eqs[:-1],
+                    lhs, rhs)
+            match ty:  # Next proceed by cases.
+                case ("Var", v):
+                    return  # TODO We need to wait until we get the up and downs ready.
                 case ("Σ", dom, ("Bind", x, cod)):
                     return ("Σ",
-                        ("Id", ("Bind", *vars, dom), *tylreqs, ("fst", LHS), ("fst", RHS)),
+                        ("Id", ("Bind", *vars, dom),
+                            *scope, ("fst", lhs), ("fst", rhs)),
                         ("Bind", x,
                             ("Id", ("Bind", *vars, x, cod),
-                                *tys, ("Bind", *vars, x, dom),
-                                *left, ("fst", LHS),
-                                *right, ("fst", RHS),
-                                *eqs, ("Var", x),
-                                ("snd", LHS), ("snd", RHS))))
-                case ("Π", dom, ("Bind", x, cod)):
-                    pass
-            raise Exception("Not supported.", pretty(tm))
-        case ("ap", ("Bind", *vars, aptm), *tylreqs):
-            tys, left, right, eqs =\
-                tylreqs[0:len(vars)], tylreqs[len(vars):len(vars)*2],\
-                tylreqs[len(vars)*2:len(vars)*3], tylreqs[len(vars)*3:]
-            match aptm:
-                case (",", ty, tm1, tm2):
-                    pass
-                case ("fst", pair):
-                    return ("fst",
-                        ("ap", ("Bind", *vars, pair), *tylreqs))
-                case ("snd", pair):
-                    return ("snd",
-                        ("ap", ("Bind", *vars, pair), *tylreqs))
-            raise Exception("Not supported.", pretty(tm))
-        case (cons, *ts):
-            return (cons, *(normalize(t) for t in ts))
-        case _:
-            return tm
+                                *tys,    dom,
+                                *left,   ("fst", lhs),
+                                *right,  ("fst", rhs),
+                                *eqs,    ("Var", x),
+                                ("snd", lhs), ("snd", rhs))))
+        case ("ap", ("Bind", *vars, tm), *scope):
+            tys, left, right, eqs = tele(scope)
+            pass
+
+def normalize_(tm):
+    touched = False
+    tmr = []
+    for sub in tm:
+        if isinstance(sub, tuple):
+            subr, t = normalize_(sub)
+            tmr.append(subr)
+            touched = touched or t
+        else:
+            tmr.append(sub)
+    tm = tuple(tmr)
+
+    tmr = rewrite(tm)
+    if tmr is None:
+        if touched:
+            return normalize_(tm)[0], True
+        return tm, False
+    return normalize_(tmr)[0], True
+
+def normalize(tm):
+    return normalize_(tm)[0]
 
 def conv(tm1, tm2, ty):
     # Checks whether tm1 <=> tm2.
     if tm1 == tm2: return
-    match normalize(ty):
+    match ty := normalize(ty):
         case ("U",):
-            match tm1, tm2:
+            match tm1 := normalize(tm1), tm2 := normalize(tm2):
                 case ("Π", dom1, ("Bind", x1, cod1)),\
                     ("Π", dom2, ("Bind", x2, cod2)):
                     conv(dom1, dom2, ("U",))
@@ -161,7 +154,7 @@ def ensureΠΣ(con, ty):
     Ensures that the type is a function type or a dependent pair.
     Returns (dom, x, cod).
     """
-    match normalize(ty):
+    match ty := normalize(ty):
         case (c, dom, ("Bind", x, cod)) if c == con:
             return dom, x, cod
         case _:
@@ -333,3 +326,16 @@ if __name__ == "__main__":
     rf = refl(("Var", "a"))
     print(pretty(rf))
     print(pretty(infer({'A': ("U",), 'a': ("Var", "A")}, rf)))
+
+    prf = (",", ("Bind", "_",
+        ("Id", ("Bind", ("Var", "B")),
+        ("Var", "b"), ("Var", "b"))),
+        refl(("Var", "a")), refl(("Var", "b")))
+    print(pretty(prf))
+    typrf = infer({'A': ("U",), 'B': ("U",), 'a': ("Var", "A"), 'b': ("Var", "B")}, prf)
+    print(pretty(typrf))
+    conv(typrf, ("Id",
+        ("Bind", ("Σ", ("Var", "A"), ("Bind", "_u",
+            ("Var", "B")))),
+            (",", ("Bind", "_v", ("Var", "B")), ("Var", "a"), ("Var", "b")),
+            (",", ("Bind", "_w", ("Var", "B")), ("Var", "a"), ("Var", "b"))), ("U",))
