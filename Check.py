@@ -22,6 +22,8 @@ Nat Natural numbers
 U   Universe (Currently spartan McBride style)
 
 ===== HOTT Syntax =====
+("Id", ("Bind", *vars, ty), *tys, *left, *right, *eqs, l, r)
+
 ("ap", ("Bind", *vars, tm), *tys, *left, *right, *eqs)
     Transport. *tys is a sort of telescope.
 """
@@ -48,7 +50,7 @@ def refl(tm):
     return ("ap", ("Bind", tm))
 
 def Id(ty, tm1, tm2):
-    return ("@", ("fst", refl(ty)), (",", ("Bind", "_", ty), tm1, tm2))
+    return ("Id", ("Bind", ty), tm1, tm2)
 
 def isContr(A):
     return subst(("Σ", ("Var", "isContr_A"), ("Bind", "_x",
@@ -86,6 +88,8 @@ def normalize(tm):
                     return tm2
                 case n:
                     return ("snd", n)
+        case ("ap", ("Bind", *vars, aptm), *tylreqs):
+            raise Exception("Not supported.", pretty(tm))
         case (cons, *ts):
             return (cons, *(normalize(t) for t in ts))
         case _:
@@ -216,11 +220,35 @@ def infer(ctx, tm):
                     del ctx[v]
             for i in range(len(vars)):
                 tyeqi = infer(ctx, eqs[i])
-                tyexp = ("@", ("@", ("fst", ("ap", tys[i], *left[:i], *right[:i], *eqs[:i])), left[i]), right[i])
+                tyexp = ("Id", tys[i], *left[:i], *right[:i], *eqs[:i], left[i], right[i])
                 conv(tyeqi, tyexp, ("U",))
-            return ("@", ("@", ("fst", ("ap", ("Bind", *vars, C), *lreqs)),
-                subst(arg, {vars[i]:left[i] for i in range(len(vars))})),
+            return ("Id", ("Bind", *vars, C), *lreqs,
+                subst(arg, {vars[i]:left[i] for i in range(len(vars))}),
                 subst(arg, {vars[i]:right[i] for i in range(len(vars))}))
+        case ("Id", ("Bind", *vars, arg), *lreqs, LHS, RHS):
+            tys, left, right, eqs =\
+                lreqs[0:len(vars)], lreqs[len(vars):len(vars)*2],\
+                lreqs[len(vars)*2:len(vars)*3], lreqs[len(vars)*3:]
+            temp_ctx = dict()
+            for i,v in enumerate(vars):
+                temp_ctx[v] = ctx[v] if v in ctx else None
+                ctx[v] = tys[i]
+            U = infer(ctx, arg)
+            conv(U, ("U",), ("U",))
+            for v in temp_ctx:
+                if temp_ctx[v] is not None:
+                    ctx[v] = temp_ctx[v]
+                else:
+                    del ctx[v]
+            for i in range(len(vars)):
+                tyeqi = infer(ctx, eqs[i])
+                tyexp = ("Id", tys[i], *left[:i], *right[:i], *eqs[:i], left[i], right[i])
+                conv(tyeqi, tyexp, ("U",))
+            tLHS = infer(ctx, LHS)
+            conv(tLHS, subst(arg, {vars[i]:left[i] for i in range(len(vars))}), ("U",))
+            tRHS = infer(ctx, RHS)
+            conv(tRHS, subst(arg, {vars[i]:right[i] for i in range(len(vars))}), ("U",))
+            return ("U",)
         case _:
             raise ValueError("Unexpected term: " + pretty(tm))
 
