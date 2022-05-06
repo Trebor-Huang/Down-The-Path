@@ -22,16 +22,16 @@ Nat Natural numbers
 U   Universe (Currently spartan McBride style)
 
 ===== HOTT Syntax =====
-The (*tys, *left, *right, *eqs) cuple stands for a identity telescope.
+The (*left, *right, *eqs) cuple stands for a identity telescope.
 
-("Id", ("Bind", *vars, ty), *tys, *left, *right, *eqs, l, r)
+("Id", ("Bind", *vars, ty), *left, *right, *eqs, l, r)
 
-("ap", ("Bind", *vars, tm), *tys, *left, *right, *eqs)
+("ap", ("Bind", *vars, tm), *left, *right, *eqs)
 """
 
 def tele(tylreqs):
-    l = len(tylreqs)//4
-    return tylreqs[:l], tylreqs[l:2*l], tylreqs[2*l:3*l], tylreqs[3*l:]
+    l = len(tylreqs)//3
+    return tylreqs[:l], tylreqs[l:2*l], tylreqs[2*l:]
 
 def fun(a, b):
     return ("Π", a, ("Bind", "_", b))
@@ -70,11 +70,10 @@ def rewrite(tm):
         case ("snd", (",", _, _, tm2)):
             return tm2
         case ("Id", ("Bind", *vars, ty), *scope, lhs, rhs):
-            tys, left, right, eqs = tele(scope)
+            left, right, eqs = tele(scope)
             fv = freevar(ty)  # First try to redact the last free variable.
             if len(vars) > 0 and vars[-1] not in fv:
                 return ("Id", ("Bind", *vars[:-1], ty),
-                    *tys[:-1],
                     *left[:-1],
                     *right[:-1],
                     *eqs[:-1],
@@ -88,14 +87,27 @@ def rewrite(tm):
                             *scope, ("fst", lhs), ("fst", rhs)),
                         ("Bind", x,
                             ("Id", ("Bind", *vars, x, cod),
-                                *tys,    dom,
                                 *left,   ("fst", lhs),
                                 *right,  ("fst", rhs),
                                 *eqs,    ("Var", x),
                                 ("snd", lhs), ("snd", rhs))))
         case ("ap", ("Bind", *vars, tm), *scope):
-            tys, left, right, eqs = tele(scope)
-            pass
+            left, right, eqs = tele(scope)
+            match tm:
+                case ("fst", pair):
+                    return ("fst", ("ap", ("Bind", *vars, pair), *scope))
+                case ("snd", pair):
+                    return ("snd", ("ap", ("Bind", *vars, pair), *scope))
+                case (",", ("Bind", x, wit), tm1, tm2):
+                    return (",", ("Bind", x,
+                            ("Id", ("Bind", *vars, x, wit),
+                                *left, ("fst", lhs),
+                                *right, ("fst", rhs),
+                                *eqs, ("Var", x),
+                                subst(tm2, {v:t for v,t in zip(vars, left)}),
+                                subst(tm2, {v:t for v,t in zip(vars, right)}))),
+                        ("ap", ("Bind", *vars, tm1), *scope),
+                        ("ap", ("Bind", *vars, tm2), *scope))
 
 def normalize_(tm):
     touched = False
@@ -228,14 +240,15 @@ def infer(ctx, tm):
             return constants[con]
         case ("U",):
             return ("U",)
-        case ("ap", ("Bind", *vars, arg), *lreqs):
-            tys, left, right, eqs =\
-                lreqs[0:len(vars)], lreqs[len(vars):len(vars)*2],\
-                lreqs[len(vars)*2:len(vars)*3], lreqs[len(vars)*3:]
+        case ("ap", ("Bind", *vars, arg), *scope):
+            left, right, eqs = tele(scope)
             temp_ctx = dict()
             for i,v in enumerate(vars):
                 temp_ctx[v] = ctx[v] if v in ctx else None
-                ctx[v] = tys[i]
+                lty = infer(ctx, left[i])
+                rty = infer(ctx, right[i])
+                conv(lty, rty, ("U",))
+                ctx[v] = lty
             C = infer(ctx, arg)
             for v in temp_ctx:
                 if temp_ctx[v] is not None:
@@ -244,19 +257,20 @@ def infer(ctx, tm):
                     del ctx[v]
             for i in range(len(vars)):
                 tyeqi = infer(ctx, eqs[i])
-                tyexp = ("Id", tys[i], *left[:i], *right[:i], *eqs[:i], left[i], right[i])
+                tyexp = ("Id", *left[:i], *right[:i], *eqs[:i], left[i], right[i])
                 conv(tyeqi, tyexp, ("U",))
-            return ("Id", ("Bind", *vars, C), *lreqs,
+            return ("Id", ("Bind", *vars, C), *scope,
                 subst(arg, {vars[i]:left[i] for i in range(len(vars))}),
                 subst(arg, {vars[i]:right[i] for i in range(len(vars))}))
-        case ("Id", ("Bind", *vars, arg), *lreqs, LHS, RHS):
-            tys, left, right, eqs =\
-                lreqs[0:len(vars)], lreqs[len(vars):len(vars)*2],\
-                lreqs[len(vars)*2:len(vars)*3], lreqs[len(vars)*3:]
+        case ("Id", ("Bind", *vars, arg), *scope, LHS, RHS):
+            left, right, eqs = tele(scope)
             temp_ctx = dict()
             for i,v in enumerate(vars):
                 temp_ctx[v] = ctx[v] if v in ctx else None
-                ctx[v] = tys[i]
+                lty = infer(ctx, left[i])
+                rty = infer(ctx, right[i])
+                conv(lty, rty, ("U",))
+                ctx[v] = lty
             U = infer(ctx, arg)
             conv(U, ("U",), ("U",))
             for v in temp_ctx:
@@ -266,7 +280,7 @@ def infer(ctx, tm):
                     del ctx[v]
             for i in range(len(vars)):
                 tyeqi = infer(ctx, eqs[i])
-                tyexp = ("Id", tys[i], *left[:i], *right[:i], *eqs[:i], left[i], right[i])
+                tyexp = ("Id", *left[:i], *right[:i], *eqs[:i], left[i], right[i])
                 conv(tyeqi, tyexp, ("U",))
             tLHS = infer(ctx, LHS)
             conv(tLHS, subst(arg, {vars[i]:left[i] for i in range(len(vars))}), ("U",))
