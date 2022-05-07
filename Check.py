@@ -30,6 +30,8 @@ The (*left, *right, *eqs) cuple stands for a identity telescope.
 """
 
 def tele(tylreqs):
+    if len(tylreqs) % 3 != 0:
+        raise Exception("Malformed telescope")
     l = len(tylreqs)//3
     return tylreqs[:l], tylreqs[l:2*l], tylreqs[2*l:]
 
@@ -71,8 +73,8 @@ def rewrite(tm):
             return tm2
         case ("Id", ("Bind", *vars, ty), *scope, lhs, rhs):
             left, right, eqs = tele(scope)
-            fv = freevar(ty)  # First try to redact the last free variable.
-            if len(vars) > 0 and vars[-1] not in fv:
+            # First try to redact the last free variable.
+            if len(vars) > 0 and vars[-1] not in freevar(ty):
                 return ("Id", ("Bind", *vars[:-1], ty),
                     *left[:-1],
                     *right[:-1],
@@ -81,6 +83,7 @@ def rewrite(tm):
             match ty:  # Next proceed by cases.
                 case ("Var", v):
                     return  # TODO We need to wait until we get the up and downs ready.
+                # Dependent Sigma
                 case ("Σ", dom, ("Bind", x, cod)):
                     return ("Σ",
                         ("Id", ("Bind", *vars, dom),
@@ -91,9 +94,33 @@ def rewrite(tm):
                                 *right,  ("fst", rhs),
                                 *eqs,    ("Var", x),
                                 ("snd", lhs), ("snd", rhs))))
+                # Dependent Pi
+                case ("Π", dom, ("Bind", x, cod)):
+                    u, v = fresh_var("u"), fresh_var("v")
+                    return ("Π", dom, ("Bind", u,
+                        ("Π", dom, ("Bind", v,
+                        ("Π", ("Id", ("Bind", *vars, dom),
+                            *scope, ("Var", u), ("Var", v)), ("Bind", x,
+                            ("Id", ("Bind", *vars, x, cod),
+                                *left,   ("Var", u),
+                                *right,  ("Var", v),
+                                *eqs,    ("Var", x),
+                                ("@", lhs, ("Var", u)),
+                                ("@", rhs, ("Var", v)))))))))
+                # 0, 1
+                case ("cons", ("0" | "1")):
+                    return ("cons", "1")
         case ("ap", ("Bind", *vars, tm), *scope):
             left, right, eqs = tele(scope)
+            if len(vars) > 0 and vars[-1] not in freevar(tm):
+                return ("ap", ("Bind", *vars[:-1], tm),
+                    *left[:-1],
+                    *right[:-1],
+                    *eqs[:-1])
             match tm:
+                case ("Var", v) if v in vars:  # This happens unless we have refl.
+                    return eqs[vars.index(v)]
+                # Dependent Sigma
                 case ("fst", pair):
                     return ("fst", ("ap", ("Bind", *vars, pair), *scope))
                 case ("snd", pair):
@@ -108,6 +135,26 @@ def rewrite(tm):
                                 subst(tm2, {v:t for v,t in zip(vars, right)}))),
                         ("ap", ("Bind", *vars, tm1), *scope),
                         ("ap", ("Bind", *vars, tm2), *scope))
+                # Dependent Pi
+                case ("λ", dom, ("Bind", x, tm)):
+                    u,v = fresh_var("u"), fresh_var("v")
+                    return ("λ", dom, ("Bind", u,
+                        ("λ", dom, ("Bind", v,
+                        ("λ", ("Id", ("Bind", *vars, dom),
+                            *scope, ("Var", u), ("Var", v)), ("Bind", x,
+                            ("ap", ("Bind", *vars, x, tm),
+                                *left, ("Var", u),
+                                *right, ("Var", v),
+                                *eqs, ("Var", x))))))))
+                case ("@", fun, arg):
+                    return ("@", ("@", ("@",
+                        ("ap", ("Bind", *vars, fun), *scope),
+                        subst(arg, {v:t for v,t in zip(vars, left)})),
+                        subst(arg, {v:t for v,t in zip(vars, right)})),
+                        ("ap", ("Bind", *vars, arg), *scope))
+                # 0, 1
+                case ("cons", "*"):
+                    return ("cons", "*")
 
 def normalize_(tm):
     touched = False
@@ -148,6 +195,7 @@ def conv(tm1, tm2, ty):
                 case _:
                     raise ValueError("Type mismatch.", pretty(tm1), pretty(tm2))
         case ("Π", _, ("Bind", x, cod)):
+            x = fresh_var(x)
             conv(normalize(("@",tm1,("Var",x))),
                 normalize(("@",tm2,("Var",x))), cod)
         case ("Σ", dom, ("Bind", x, cod)):
@@ -249,16 +297,18 @@ def infer(ctx, tm):
                 rty = infer(ctx, right[i])
                 conv(lty, rty, ("U",))
                 ctx[v] = lty
+
+                tyeqi = infer(ctx, eqs[i])
+                tyexp = ("Id", ("Bind", *vars[:i], lty),
+                    *left[:i], *right[:i], *eqs[:i], left[i], right[i])
+                conv(tyeqi, tyexp, ("U",))
+
             C = infer(ctx, arg)
             for v in temp_ctx:
                 if temp_ctx[v] is not None:
                     ctx[v] = temp_ctx[v]
                 else:
                     del ctx[v]
-            for i in range(len(vars)):
-                tyeqi = infer(ctx, eqs[i])
-                tyexp = ("Id", *left[:i], *right[:i], *eqs[:i], left[i], right[i])
-                conv(tyeqi, tyexp, ("U",))
             return ("Id", ("Bind", *vars, C), *scope,
                 subst(arg, {vars[i]:left[i] for i in range(len(vars))}),
                 subst(arg, {vars[i]:right[i] for i in range(len(vars))}))
@@ -353,3 +403,12 @@ if __name__ == "__main__":
             ("Var", "B")))),
             (",", ("Bind", "_v", ("Var", "B")), ("Var", "a"), ("Var", "b")),
             (",", ("Bind", "_w", ("Var", "B")), ("Var", "a"), ("Var", "b"))), ("U",))
+
+    ap_refl = ("ap", ("Bind", "z", ("Var", "y")), ("Var", "x"), ("Var", "x"),
+        ("ap", ("Bind", ("Var", "x"))))
+    print(pretty(ap_refl))
+    ty_ap_refl = infer({"A":("U",), "x": ("Var", "A"), "y": ("Var", "A")},
+        ap_refl)
+    print(pretty(ty_ap_refl))
+    print(pretty(normalize(ap_refl)))
+    print(pretty(normalize(ty_ap_refl)))
