@@ -27,6 +27,8 @@ A spartan implementation of H.O.T.T.
 - [X] Start out with 0,1,∑,∏,U. (2, Nat are slightly more complicated.)
 - [X] Add `Id` and `ap`. Define `1-1-Corr`.
 - [ ] Add typechecking and reduction rules for `ap`.
+  - [X] Easy rules for 0,1,∑,∏.
+  - [ ] The complicated ones for U. We might need to introduce a couple more primitives (`corrL` and `corrR`). I'm not sure whether this would make it easier.
 - [ ] Symmetries......
 - [ ] Inductive types.
 - [ ] Higher inductive types.
