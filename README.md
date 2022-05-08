@@ -75,7 +75,7 @@ The code files have some comments at the top where you can read a little more ab
 > I know I'm gonna get there,  
 > But I've got to keep on walking down the line."
 
-(...)
+Python has got a couple of cool features like [assignment expressions](https://peps.python.org/pep-0572/) and [structural pattern matching](https://peps.python.org/pep-0634/). I'm trying to write python code in a semi-pure style.
 
 ## Down the line
 

@@ -105,6 +105,10 @@ def rewrite(tm):
                 # 0, 1
                 case ("cons", ("0" | "1")):
                     return ("cons", "1")
+                # U
+                case ("U",):
+                    # It is impossible to have len(vars) > 0 here.
+                    return OneOneCorr(lhs, rhs)
         case ("ap", ("Bind", *vars, tm), *scope):
             left, right, eqs = tele(scope)
             if len(vars) > 0 and vars[-1] not in freevar(tm):
@@ -179,6 +183,7 @@ def conv(tm1, tm2, ty):
     match ty := normalize(ty):
         case ("U",):
             match tm1 := normalize(tm1), tm2 := normalize(tm2):
+                case _ if tm1 == tm2: return
                 case ("Π", dom1, ("Bind", x1, cod1)),\
                     ("Π", dom2, ("Bind", x2, cod2)):
                     conv(dom1, dom2, ("U",))
@@ -299,6 +304,7 @@ def infer(ctx, tm):
                 conv(tyeqi, tyexp, ("U",))
 
             C = infer(ctx, arg)
+
             for v in temp_ctx:
                 if temp_ctx[v] is not None:
                     ctx[v] = temp_ctx[v]
@@ -316,17 +322,19 @@ def infer(ctx, tm):
                 rty = infer(ctx, right[i])
                 conv(lty, rty, ("U",))
                 ctx[v] = lty
-            U = infer(ctx, arg)
-            conv(U, ("U",), ("U",))
+
+                tyeqi = infer(ctx, eqs[i])
+                tyexp = ("Id", ("Bind", *vars[:i], lty),
+                    *left[:i], *right[:i], *eqs[:i], left[i], right[i])
+                conv(tyeqi, tyexp, ("U",))
+
+            conv(infer(ctx, arg), ("U",), ("U",))
+
             for v in temp_ctx:
                 if temp_ctx[v] is not None:
                     ctx[v] = temp_ctx[v]
                 else:
                     del ctx[v]
-            for i in range(len(vars)):
-                tyeqi = infer(ctx, eqs[i])
-                tyexp = ("Id", *left[:i], *right[:i], *eqs[:i], left[i], right[i])
-                conv(tyeqi, tyexp, ("U",))
             tLHS = infer(ctx, LHS)
             conv(tLHS, subst(arg, {vars[i]:left[i] for i in range(len(vars))}), ("U",))
             tRHS = infer(ctx, RHS)
