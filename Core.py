@@ -45,27 +45,6 @@ def pretty_Var(v):
     else:
         return name[0] + name[1].translate(str.maketrans("0123456789","₀₁₂₃₄₅₆₇₈₉"))
 
-def pretty(t):
-    """
-    Pretty print a term.
-    """
-    if isinstance(t, str):
-        return t
-    match t:
-        case ("Var", x):
-            return pretty_Var(x)
-        case ("Bind", *xs, t1):
-            return "(" + " ".join(map(pretty_Var, xs)) +\
-                " => " + strip_parens(pretty(t1)) + ")"
-        case (cons,):
-            return cons
-        case (cons, t):
-            return "(" + cons + " " + strip_parens(pretty(t)) + ")"
-        case (*ts,):
-            return "(" + " ".join(map(pretty, ts)) + ")"
-        case _:
-            raise ValueError("Unexpected term: " + str(t))
-
 def freevar(term):
     """
     Return a set of free variables in term.
@@ -80,34 +59,9 @@ def freevar(term):
         case _:
             raise ValueError("Unexpected term: " + str(term))
 
-# def to_lazy(t):
-#     """
-#     Convert a term to a lazy tree.
-#     """
-#     match t:
-#         case (cons, *ts):
-#             return lambda: (cons, *(to_lazy(t) for t in ts))
-#         case _:
-#             return t
-
-# def from_lazy(t):
-#     """
-#     Fully evaluate a lazy tree.
-#     """
-#     if not callable(t):
-#         return t
-#     match t():
-#         case (cons, *ts):
-#             return (cons, *(from_lazy(t) for t in ts))
-#         case u:
-#             return u
-
-# def unpack(lazy):
-#     if not callable(lazy):
-#         return lazy
-#     return lazy()
-
-if __name__ == "__main__":
-    tm = ("Lam", ("Bind", "x", ("App", ("Var", "x"), ("Var", "y"))))
-    print(pretty(subst(tm, {"x": ("Var", "z")})))
-    print(pretty(subst(tm, {"y": ("Var", "z")})))
+# tele trisects a sequence of terms
+def tele(tylreqs):
+    if len(tylreqs) % 3 != 0:
+        raise Exception("Malformed telescope")
+    l = len(tylreqs)//3
+    return tylreqs[:l], tylreqs[l:2*l], tylreqs[2*l:]

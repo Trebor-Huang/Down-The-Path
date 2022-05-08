@@ -1,4 +1,5 @@
 from Core import *
+from Parser import parse, pretty
 """
 Typechecker for MLTT.
 
@@ -28,12 +29,6 @@ The (*left, *right, *eqs) cuple stands for a identity telescope.
 
 ("ap", ("Bind", *vars, tm), *left, *right, *eqs)
 """
-
-def tele(tylreqs):
-    if len(tylreqs) % 3 != 0:
-        raise Exception("Malformed telescope")
-    l = len(tylreqs)//3
-    return tylreqs[:l], tylreqs[l:2*l], tylreqs[2*l:]
 
 def fun(a, b):
     return ("Π", a, ("Bind", "_", b))
