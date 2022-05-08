@@ -14,7 +14,34 @@ A spartan implementation of H.O.T.T.
 > Maybe I could help you along and sing you a song,  
 > And move you on."
 
-(...)
+I haven't implemented parsers for whole files yet. But I can already parse and print individual terms.
+
+Ordinary MLTT stuff:
+```
+λ (t : U) (x : t) => x
+Π (t : U) (x : t) => t
+```
+Dependent pairs are annotated the type of the second component with a peculiar syntax.
+```
+λ (t : U) (x : t) => t { t' => t' } x
+Π (t : U) (x : t) Σ (t' : U) => t'
+```
+`fst` and `snd` are prefixes that have the highest priority, so `f fst snd p q` stands for `(f(fst(snd(p))))(q)`:
+```
+λ (T : U) (S : Π (_ : T) => U) (p : Σ (t : T) => S t) => snd p
+Π (T : U) (S : Π (_ : T) => U) (p : Σ (t : T) => S t) => S fst p
+```
+`ap` and `Id` without dependency:
+```
+ap[ . y]
+Id[ . A][y, y]
+```
+When we deal with n-ary `ap` and `Id`, we need to explicitly mark the LHS and RHS of the equations:
+```
+ap[z / ap[ . x] : x == x . y]
+Id[z / ap[ . x] : x == x . A][y, y]
+```
+And of course this one reduces to the one *above* it.
 
 ## Type Theory
 

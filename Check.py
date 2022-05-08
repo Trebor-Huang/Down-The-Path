@@ -368,15 +368,13 @@ if __name__ == "__main__":
     print(pretty(Pair))
     print(pretty(infer({}, Pair)))
 
-    # ∏(T : U) (S : ∏(_:T) => U) (p : ∑(t : T) => S(t))
-    #   => T
-    fst = ("λ", ("U",), ("Bind", "T",
+    snd = ("λ", ("U",), ("Bind", "T",
         ("λ", ("Π", ("Var", "T"), ("Bind", "_", ("U",))), ("Bind", "S",
         ("λ", ("Σ", ("Var", "T"), ("Bind", "t",
             ("@", ("Var", "S"), ("Var", "t")))), ("Bind", "p",
-        ("fst", ("Var", "p"))))))))
-    print(pretty(fst))
-    print(pretty(infer({}, fst)))
+        ("snd", ("Var", "p"))))))))
+    print(pretty(snd))
+    print(pretty(infer({}, snd)))
 
     corr = OneOneCorr(("Var", "A"), ("Var", "A"))
     print(pretty(corr))
