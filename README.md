@@ -61,10 +61,9 @@ And of course this one reduces to the one *above* it.
 - [ ] Higher inductive types.
 - [ ] Inductive families?!
 
-Thorsten Altenkirch et al. in their original presentation stated that there are "philosophical, syntactic, and semantic" reasons that they used an `newtype` style approach when dealing with univalence, having `p↑↓ ≡ p`. I have no philosophical objections to these unless someone convinces me (which they didn't attempt); I anticipate some strictness issues that may have to be worked around by weird tricks
-e.g. [Scott's trick](https://en.wikipedia.org/wiki/Scott's_trick), but this is purely semantic, and I don't need to worry yet; There may be confluence / termination / subject reduction problems, but I cannot yet see why. So I'm going to get rid of this `↑` `↓` stuff.
-
 For inductive types (even `2`), we need to make `Id`, `ap` stuck on neutral terms. So for instance `Id[. A+B][inl a, inl b]` would compute to `Id[.A][a,b]`, just as the HoTT book describes. Alternatively we can just make `Id` compute into a case analysis. Not sure which would be easier.
+
+We might be able to come up with syntactic restrictions on HITs to make it work.
 
 The code files have some comments at the top where you can read a little more about my thoughts.
 
