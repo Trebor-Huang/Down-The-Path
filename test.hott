@@ -8,3 +8,9 @@
 
 \define refl λ(A : U)(a : A) => ap[.a]
 \infer refl 1 *
+
+\infer λ(A : U)(a00 : A)(a01 : A)(a10 : A)(a11 : A)
+    (a0- : Id[.A][a00,a01])(a1- : Id[.A][a10,a11])
+    (a-0 : Id[.A][a00,a10])(a-1 : Id[.A][a01,a11])
+    => Id[x / a0- : a00 == a01 ; y / a1- : a10 == a11 . Id[.A][x,y]]
+        [a-0, a-1]

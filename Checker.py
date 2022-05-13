@@ -142,6 +142,7 @@ class Checker:
                     self.check(ty, ("U",))
                 self.check(lhs, subst(ty, {v:l for v, l in zip(vars, left)}))
                 self.check(rhs, subst(ty, {v:r for v, r in zip(vars, right)}))
+                return ("U",)
             case ("ap", ("Bind", *vars, expr),
                 ("Telescope", *left),
                 ("Telescope", *right),
@@ -204,6 +205,7 @@ if __name__ == "__main__":
             case ("\\define", name, body):
                 checker.definitions[name] = body
             case ("\\infer", expr):
+                print(pretty(expr), " is of type:")
                 print(pretty(checker.infer(expr)))
             case ("\\normalize", expr):
                 print(pretty(checker.normalize(expr)))

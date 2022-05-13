@@ -240,19 +240,22 @@ def parse_tele(tokens):
     left = []
     right = []
     eqs = []
-    while tokens:
+    while True:
         try:
             v, t, l, r, tokens = parse_sc(tokens)
+            vs.append(v)
+            left.append(l)
+            right.append(r)
+            eqs.append(t)
         except SyntaxError:
             break
-        vs.append(v)
-        left.append(l)
-        right.append(r)
-        eqs.append(t)
+        if not tokens or tokens[0] != ";":
+            break
+        tokens.pop(0)
     return vs, left, right, eqs, tokens
 
 def pretty_tele(var, left, right, eqs):
-    return " ;".join("%s / %s : %s == %s" % (pretty_Var(v), pretty(e), pretty(l), pretty(r))
+    return " ; ".join("%s / %s : %s == %s" % (pretty_Var(v), pretty(e), pretty(l), pretty(r))
             for v, l, r, e in zip(var, left, right, eqs))
 
 def parse_binder(tokens):
