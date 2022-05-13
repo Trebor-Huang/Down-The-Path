@@ -52,14 +52,13 @@ And of course this one reduces to the one *above* it.
 > I don't know where to call my home."
 
 - [X] Start out with 0,1,∑,∏,U. (2, Nat are slightly more complicated.)
-- [X] Add `Id` and `ap`. Define `1-1-Corr`.
-- [ ] Add typechecking and reduction rules for `ap`.
-  - [X] Easy rules for 0,1,∑,∏.
-  - [ ] The complicated ones for U. We might need to introduce a couple more primitives (`corrL` and `corrR`). I'm not sure whether this would make it easier.
-- [ ] Symmetries.
+  - [ ] I *think* I should try out a reduction system based of (this one)[https://arxiv.org/pdf/1304.0809.pdf].
+- [ ] Get to the meat.
+  - [ ] Typechecking rules for HOTT primitives, which I think should be `ap`, `Id`, `sym`, `↑`, `↓`.
+  - [ ] Reduction rules for all those. For simple reduction rules, we should introduce 6 more primitives, which all individially behave well. But that impedes type checking.
 - [ ] Inductive types.
 - [ ] Higher inductive types.
-- [ ] Inductive families?!
+- [ ] Inductive families.
 
 For inductive types (even `2`), we need to make `Id`, `ap` stuck on neutral terms. So for instance `Id[. A+B][inl a, inl b]` would compute to `Id[.A][a,b]`, just as the HoTT book describes. Alternatively we can just make `Id` compute into a case analysis. Not sure which would be easier.
 
