@@ -70,7 +70,7 @@ class Checker:
         return self._normalize(expr) or expr
 
     def conversion(self, expr1, expr2, ty):
-        if expr1 == expr2:
+        if alpha(expr1, expr2):
             return
         match ty := self.normalize(ty):
             case ("Π", dom, ("Bind", x, cod)):
@@ -82,7 +82,7 @@ class Checker:
             case ("con", ("0" | "1")):
                 return
             case _: # TODO full eta is difficult.
-                if self.normalize(expr1) == self.normalize(expr2):
+                if alpha(expr1:=self.normalize(expr1), expr2:=self.normalize(expr2)):
                     return
                 print(pretty(expr1), pretty(expr2))
                 if input("Are they equal? ") == "n":

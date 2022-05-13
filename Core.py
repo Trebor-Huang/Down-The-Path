@@ -68,4 +68,4 @@ def alpha(t1, t2) -> bool:
         case (cons1, *ts1), (cons2, *ts2) if cons1 == cons2:
             return all(alpha(t1, t2) for t1, t2 in zip(ts1, ts2))
         case _:
-            return False
+            return t1 == t2
