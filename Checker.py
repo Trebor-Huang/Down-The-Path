@@ -1,5 +1,5 @@
 from Core import *
-from Parser import parse, pretty
+from Parser import pretty, file_parse
 from contextlib import contextmanager
 
 class Checker:
@@ -32,16 +32,24 @@ class Checker:
         if self.rewrites:  # User rewrite rules
             if rexp := self.rewrites(expr) is not None:
                 return rexp
-        pass
+        match expr:
+            case ("Var", x):
+                if x not in self.context:
+                    if x in self.definitions:
+                        return self.definitions[x]
+                    elif x in self.constants:
+                        return ("con", x)
 
     def _normalize(self, expr):  # Brutal CBV
+        if not isinstance(expr, tuple):
+            return None
         changed = True
         touched = False
         while True:
             while changed:
                 changed = False
-                rexpr = []
-                for subexpr in expr:
+                rexpr = [expr[0]]
+                for subexpr in expr[1:]:
                     rsubexpr = self._normalize(subexpr)
                     if rsubexpr is not None:
                         touched = True
@@ -82,6 +90,10 @@ class Checker:
             case ("Var", x):
                 if x in self.context:
                     return self.context[x]
+                elif x in self.definitions:
+                    return self.infer(self.definitions[x])
+                elif x in self.constants:
+                    return self.constants[x]
                 raise ValueError("Unknown variable: " + x)
             case ("Bind", *_):
                 raise ValueError("Unexpected Bind: " + pretty(expr))
@@ -105,6 +117,7 @@ class Checker:
                 with self.push({x:tyfst}):
                     self.check(tybody, ("U",))
                 self.check(tm2, subst(tybody, {x:tm1}))
+                return ("Σ", tyfst, ("Bind", x, tybody))
             case ("fst", pair):
                 pairty = self.infer(pair)
                 (_, dom, _) = self.ensure_head(pairty, "Σ")
@@ -122,7 +135,7 @@ class Checker:
 
     def check(self, expr, ty):
         ty1 = self.infer(expr)
-        self.conversion(ty1, ty)
+        self.conversion(ty1, ty, ("U",))
 
     def ensure_head(self, expr, head):
         """
@@ -133,3 +146,23 @@ class Checker:
         if expr[0] != head:
             raise ValueError("Expected " + head + ", got " + pretty(expr))
         return expr
+
+if __name__ == "__main__":
+    with open("test.hott", "r") as f:
+        code = f.read()
+    checker = Checker(constants={
+        "0" : ("U",),
+        "1" : ("U",),
+        "*" : ("1",),
+        "absurd" : ("Π", ("0",), ("Bind", "_", ("Π", ("U",), ("Bind", "T", ("Var", "T")))))
+    })
+    for command in file_parse(code):
+        match command:
+            case ("\\constant", name, ty):
+                checker.constants[name] = ty
+            case ("\\define", name, body):
+                checker.definitions[name] = body
+            case ("\\infer", expr):
+                print(pretty(checker.infer(expr)))
+            case ("\\normalize", expr):
+                print(pretty(checker.normalize(expr)))

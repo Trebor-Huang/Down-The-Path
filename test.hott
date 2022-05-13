@@ -1,0 +1,7 @@
+\infer Π(A : U)(B : Π (a : A) => U)(f : Π (a : A) => B a)(a : A) => B a
+\constant Hello U
+\infer Hello
+\infer λ(x : Hello) => x
+
+\infer λ(A : U)(B : Π (a : A) => U)(f : Π (a : A) => B a)(a : A)
+    => a {x => B x} f a

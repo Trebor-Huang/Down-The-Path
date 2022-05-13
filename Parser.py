@@ -27,8 +27,8 @@ examples = [
 ]
 
 def lex(string):
+    string = string.lstrip()
     while string:
-        string = string.lstrip()
         if string[0] in "(){}[].:;|,ΣΠλ=/":
             if string[0:2] in ("=>", "=="):
                 yield string[0:2]
@@ -44,10 +44,11 @@ def lex(string):
                 k += 1
             yield string[:k]
             string = string[k:]
+        string = string.lstrip()
 
 def scope_check(string):
     if string in ("0", "1", "*", "absurd"):
-        return ("cons", string)
+        return ("con", string)
     elif string == "U":
         return ("U",)
     elif all(x in VAR_CHARS for x in string):
@@ -125,7 +126,7 @@ def pretty0(expr):
         case ("cons", const):
             return const
         case ("Id", ("Bind", *vs, type), *scope, fst, snd):
-            left, right, eqs = tele(scope)
+            left, right, eqs = (), (), () # tele(scope)
             return "Id[%s . %s][%s, %s]" % (
                 pretty_tele(vs, left, right, eqs),
                 pretty(type),
@@ -133,7 +134,7 @@ def pretty0(expr):
                 pretty(snd)
             )
         case ("ap", ("Bind", *vs, type), *scope):
-            left, right, eqs = tele(scope)
+            left, right, eqs = (), (), () # tele(scope)
             return "ap[%s . %s]" % (
                 pretty_tele(vs, left, right, eqs),
                 pretty(type)
@@ -298,14 +299,32 @@ def pretty(expr):
 
 def parse_statement(tokens):
     match tokens[0]:
-        case "\constant":
-            pass
-        case "\define":
-            pass
-        case "\check":
-            pass
-        case "\conv":
-            pass
+        case "\\constant":
+            tokens.pop(0)
+            v = scope_check(tokens.pop(0))
+            if not v or v[0] != "Var":
+                raise RuntimeError("Expected variable, got '%s'" % tokens[0])
+            v = v[1]
+            expr, tokens = parse(tokens)
+            return ("\\constant", v, expr), tokens
+        case "\\define":
+            tokens.pop(0)
+            v = scope_check(tokens.pop(0))
+            if not v or v[0] != "Var":
+                raise RuntimeError("Expected variable, got '%s'" % tokens[0])
+            v = v[1]
+            expr, tokens = parse(tokens)
+            return ("\\define", v, expr), tokens
+        case "\\infer":
+            tokens.pop(0)
+            expr, tokens = parse(tokens)
+            return ("\\infer", expr), tokens
+
+def file_parse(string):
+    tokens = list(lex(string))
+    while tokens:
+        statement, tokens = parse_statement(tokens)
+        yield statement
 
 if __name__ == "__main__":
     for ex in examples:
