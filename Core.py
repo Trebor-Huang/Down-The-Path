@@ -3,9 +3,6 @@ Core Syntax: Use Lisp style tuples.
 
 ("Var", x) : Variables.
 ("Bind", *xs, t) : Bind variables.
-
-Lazy trees: A nullary function that exposes the constructor,
-  and the arguments are again lazy trees.
 """
 fresh = 0  # Global counter for fresh variables.
 
@@ -59,9 +56,16 @@ def freevar(term):
         case _:
             raise ValueError("Unexpected term: " + str(term))
 
-# tele trisects a sequence of terms
-def tele(tylreqs):
-    if len(tylreqs) % 3 != 0:
-        raise Exception("Malformed telescope")
-    l = len(tylreqs)//3
-    return tylreqs[:l], tylreqs[l:2*l], tylreqs[2*l:]
+def alpha(t1, t2) -> bool:
+    """
+    Return True if t1 and t2 are alpha equivalent.
+    """
+    match t1, t2:
+        case ("Var", x), ("Var", y):
+            return x == y
+        case ("Bind", *xs, t1), ("Bind", *ys, t2):
+            return alpha(t1, subst(t2, {y:("Var", x) for x, y in zip(xs, ys)}))
+        case (cons1, *ts1), (cons2, *ts2) if cons1 == cons2:
+            return all(alpha(t1, t2) for t1, t2 in zip(ts1, ts2))
+        case _:
+            return False

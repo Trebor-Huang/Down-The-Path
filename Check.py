@@ -1,8 +1,6 @@
 from Core import *
 from Parser import parse, pretty
 """
-Typechecker for MLTT.
-
 ===== Core Components =====
 Π   Pi types
 λ   Functions
@@ -21,13 +19,6 @@ Nat Natural numbers
 ... recursion
 
 U   Universe (Currently spartan McBride style)
-
-===== HOTT Syntax =====
-The (*left, *right, *eqs) cuple stands for a identity telescope.
-
-("Id", ("Bind", *vars, ty), *left, *right, *eqs, l, r)
-
-("ap", ("Bind", *vars, tm), *left, *right, *eqs)
 """
 
 def fun(a, b):
@@ -76,8 +67,6 @@ def rewrite(tm):
                     *eqs[:-1],
                     lhs, rhs)
             match ty:  # Next proceed by cases.
-                case ("Var", v):
-                    return  # TODO We need to wait until we get the up and downs ready.
                 # Dependent Sigma
                 case ("Σ", dom, ("Bind", x, cod)):
                     return ("Σ",
@@ -179,7 +168,7 @@ def normalize(tm):
 
 def conv(tm1, tm2, ty):
     # Checks whether tm1 <=> tm2.
-    if tm1 == tm2: return
+    if alpha(tm1, tm2): return
     match ty := normalize(ty):
         case ("U",):
             match tm1 := normalize(tm1), tm2 := normalize(tm2):
@@ -228,188 +217,192 @@ constants["absurd"] = ("Π", ("0",), ("Bind", "_",
 constants["1"] = ("U",)
 constants["*"] = ("con", "1")
 
-def infer(ctx, tm):
-    match tm:
-        case ("Var", x):
-            return ctx[x]
-        case ("Bind", *_):
-            raise ValueError("Unexpected Bind.")
-        case (("Π" | "Σ"), dom, ("Bind", x, body)):
-            tydom = infer(ctx, dom)
-            conv(tydom, ("U",), ("U",))
-            temp = ctx[x] if x in ctx else None
-            ctx[x] = dom
-            ty = infer(ctx, body)
-            conv(ty, ("U",), ("U",))
-            if temp is not None:
-                ctx[x] = temp
-            else:
-                del ctx[x]
-            return ("U",)
-        case ("λ", dom, ("Bind", x, body)):
-            tydom = infer(ctx, dom)
-            conv(tydom, ("U",), ("U",))
-            temp = ctx[x] if x in ctx else None
-            ctx[x] = dom
-            ty = infer(ctx, body)
-            if temp is not None:
-                ctx[x] = temp
-            else:
-                del ctx[x]
-            return ("Π", dom, ("Bind", x, ty))
-        case ("@", fun, arg):
-            funty = infer(ctx, fun)
-            dom, x, cod = ensureΠΣ("Π", funty)
-            argty = infer(ctx, arg)
-            conv(argty, dom, ("U",))
-            return subst(cod, {x:arg})
-        case (",", ("Bind", x, tyx2), tm1, tm2):
-            ty1 = infer(ctx, tm1)
-            ty2 = infer(ctx, tm2)
-            temp = ctx[x] if x in ctx else None
-            ctx[x] = ty1
-            tytyx2 = infer(ctx, tyx2)
-            conv(tytyx2, ("U",), ("U",))
-            if temp is not None:
-                ctx[x] = temp
-            else:
-                del ctx[x]
-            conv(ty2, subst(tyx2, {x:tm1}), ("U",))
-            return ("Σ", ty1, ("Bind", x, tyx2))
-        case ("fst", pair):
-            pairty = infer(ctx, pair)
-            dom, _, _ = ensureΠΣ("Σ", pairty)
-            return dom
-        case ("snd", pair):
-            pairty = infer(ctx, pair)
-            _, x, cod = ensureΠΣ("Σ", pairty)
-            return subst(cod, {x:("fst", pair)})
-        case ("con", con):
-            return constants[con]
-        case ("U",):
-            return ("U",)
-        case ("ap", ("Bind", *vars, arg), *scope):
-            left, right, eqs = tele(scope)
-            temp_ctx = dict()
-            for i,v in enumerate(vars):
-                temp_ctx[v] = ctx[v] if v in ctx else None
-                lty = infer(ctx, left[i])
-                rty = infer(ctx, right[i])
-                conv(lty, rty, ("U",))
-                ctx[v] = lty
+# Global definitions.
+definitions = dict()
 
-                tyeqi = infer(ctx, eqs[i])
-                tyexp = ("Id", ("Bind", *vars[:i], lty),
-                    *left[:i], *right[:i], *eqs[:i], left[i], right[i])
-                conv(tyeqi, tyexp, ("U",))
+# def infer(tm):
+#     global INFER_CTX
+#     match tm:
+#         case ("Var", x):
+#             return INFER_CTX[x]
+#         case ("Bind", *_):
+#             raise ValueError("Unexpected Bind.")
+#         case (("Π" | "Σ"), dom, ("Bind", x, body)):
+#             tydom = infer(dom)
+#             conv(tydom, ("U",), ("U",))
+#             temp = ctx[x] if x in ctx else None
+#             ctx[x] = dom
+#             ty = infer(body)
+#             conv(ty, ("U",), ("U",))
+#             if temp is not None:
+#                 ctx[x] = temp
+#             else:
+#                 del ctx[x]
+#             return ("U",)
+#         case ("λ", dom, ("Bind", x, body)):
+#             tydom = infer(dom)
+#             conv(tydom, ("U",), ("U",))
+#             temp = ctx[x] if x in ctx else None
+#             ctx[x] = dom
+#             ty = infer(body)
+#             if temp is not None:
+#                 ctx[x] = temp
+#             else:
+#                 del ctx[x]
+#             return ("Π", dom, ("Bind", x, ty))
+#         case ("@", fun, arg):
+#             funty = infer(fun)
+#             dom, x, cod = ensureΠΣ("Π", funty)
+#             argty = infer(arg)
+#             conv(argty, dom, ("U",))
+#             return subst(cod, {x:arg})
+#         case (",", ("Bind", x, tyx2), tm1, tm2):
+#             ty1 = infer(tm1)
+#             ty2 = infer(tm2)
+#             temp = ctx[x] if x in ctx else None
+#             ctx[x] = ty1
+#             tytyx2 = infer(tyx2)
+#             conv(tytyx2, ("U",), ("U",))
+#             if temp is not None:
+#                 ctx[x] = temp
+#             else:
+#                 del ctx[x]
+#             conv(ty2, subst(tyx2, {x:tm1}), ("U",))
+#             return ("Σ", ty1, ("Bind", x, tyx2))
+#         case ("fst", pair):
+#             pairty = infer(pair)
+#             dom, _, _ = ensureΠΣ("Σ", pairty)
+#             return dom
+#         case ("snd", pair):
+#             pairty = infer(pair)
+#             _, x, cod = ensureΠΣ("Σ", pairty)
+#             return subst(cod, {x:("fst", pair)})
+#         case ("con", con):
+#             return constants[con]
+#         case ("U",):
+#             return ("U",)
+#         case ("ap", ("Bind", *vars, arg), *scope):
+#             left, right, eqs = tele(scope)
+#             temp_ctx = dict()
+#             for i,v in enumerate(vars):
+#                 temp_ctx[v] = ctx[v] if v in ctx else None
+#                 lty = infer(left[i])
+#                 rty = infer(right[i])
+#                 conv(lty, rty, ("U",))
+#                 ctx[v] = lty
 
-            C = infer(ctx, arg)
+#                 tyeqi = infer(eqs[i])
+#                 tyexp = ("Id", ("Bind", *vars[:i], lty),
+#                     *left[:i], *right[:i], *eqs[:i], left[i], right[i])
+#                 conv(tyeqi, tyexp, ("U",))
 
-            for v in temp_ctx:
-                if temp_ctx[v] is not None:
-                    ctx[v] = temp_ctx[v]
-                else:
-                    del ctx[v]
-            return ("Id", ("Bind", *vars, C), *scope,
-                subst(arg, {vars[i]:left[i] for i in range(len(vars))}),
-                subst(arg, {vars[i]:right[i] for i in range(len(vars))}))
-        case ("Id", ("Bind", *vars, arg), *scope, LHS, RHS):
-            left, right, eqs = tele(scope)
-            temp_ctx = dict()
-            for i,v in enumerate(vars):
-                temp_ctx[v] = ctx[v] if v in ctx else None
-                lty = infer(ctx, left[i])
-                rty = infer(ctx, right[i])
-                conv(lty, rty, ("U",))
-                ctx[v] = lty
+#             C = infer(arg)
 
-                tyeqi = infer(ctx, eqs[i])
-                tyexp = ("Id", ("Bind", *vars[:i], lty),
-                    *left[:i], *right[:i], *eqs[:i], left[i], right[i])
-                conv(tyeqi, tyexp, ("U",))
+#             for v in temp_ctx:
+#                 if temp_ctx[v] is not None:
+#                     ctx[v] = temp_ctx[v]
+#                 else:
+#                     del ctx[v]
+#             return ("Id", ("Bind", *vars, C), *scope,
+#                 subst(arg, {vars[i]:left[i] for i in range(len(vars))}),
+#                 subst(arg, {vars[i]:right[i] for i in range(len(vars))}))
+#         case ("Id", ("Bind", *vars, arg), *scope, LHS, RHS):
+#             left, right, eqs = tele(scope)
+#             temp_ctx = dict()
+#             for i,v in enumerate(vars):
+#                 temp_ctx[v] = ctx[v] if v in ctx else None
+#                 lty = infer(left[i])
+#                 rty = infer(right[i])
+#                 conv(lty, rty, ("U",))
+#                 ctx[v] = lty
 
-            conv(infer(ctx, arg), ("U",), ("U",))
+#                 tyeqi = infer(eqs[i])
+#                 tyexp = ("Id", ("Bind", *vars[:i], lty),
+#                     *left[:i], *right[:i], *eqs[:i], left[i], right[i])
+#                 conv(tyeqi, tyexp, ("U",))
 
-            for v in temp_ctx:
-                if temp_ctx[v] is not None:
-                    ctx[v] = temp_ctx[v]
-                else:
-                    del ctx[v]
-            tLHS = infer(ctx, LHS)
-            conv(tLHS, subst(arg, {vars[i]:left[i] for i in range(len(vars))}), ("U",))
-            tRHS = infer(ctx, RHS)
-            conv(tRHS, subst(arg, {vars[i]:right[i] for i in range(len(vars))}), ("U",))
-            return ("U",)
-        case _:
-            raise ValueError("Unexpected term: " + pretty(tm))
+#             conv(infer(arg), ("U",), ("U",))
 
-if __name__ == "__main__":
-    Idty = ("λ", ("U",), ("Bind", "t",
-        ("λ", ("Var", "t"), ("Bind", "x",
-        ("Var", "x")))))
-    print(pretty(Idty))
-    TId = infer({}, Idty)
-    print(pretty(TId))
-    IdId = ("@", ("@", Idty, TId), Idty)
-    TIdId = infer({}, IdId)
-    print(pretty(TIdId))
-    nIdId = normalize(IdId)
-    print(pretty(nIdId))
+#             for v in temp_ctx:
+#                 if temp_ctx[v] is not None:
+#                     ctx[v] = temp_ctx[v]
+#                 else:
+#                     del ctx[v]
+#             tLHS = infer(LHS)
+#             conv(tLHS, subst(arg, {vars[i]:left[i] for i in range(len(vars))}), ("U",))
+#             tRHS = infer(RHS)
+#             conv(tRHS, subst(arg, {vars[i]:right[i] for i in range(len(vars))}), ("U",))
+#             return ("U",)
+#         case _:
+#             raise ValueError("Unexpected term: " + pretty(tm))
 
-    Pointed = ("Σ", ("U",), ("Bind", "t", ("Var", "t")))
-    pointed = ("λ", ("U",), ("Bind", "t",
-        ("λ", ("Var", "t"), ("Bind", "x",
-            (",", ("Bind", "t'", ("Var", "t'")), ("Var", "t"), ("Var", "x"))))))
-    Tpointedtest = ("Π", ("U",), ("Bind", "T",
-        ("Π", ("Var", "T"), ("Bind", "_", Pointed))))
-    print(pretty(pointed))
-    Tpointed = infer({}, pointed)
-    print(pretty(Tpointed))
-    print(pretty(Tpointedtest))
-    conv(Tpointed, Tpointedtest, ("U",))
+# if __name__ == "__main__":
+#     Idty = ("λ", ("U",), ("Bind", "t",
+#         ("λ", ("Var", "t"), ("Bind", "x",
+#         ("Var", "x")))))
+#     print(pretty(Idty))
+#     TId = infer({}, Idty)
+#     print(pretty(TId))
+#     IdId = ("@", ("@", Idty, TId), Idty)
+#     TIdId = infer({}, IdId)
+#     print(pretty(TIdId))
+#     nIdId = normalize(IdId)
+#     print(pretty(nIdId))
 
-    # λ(T : U) (S : ∏(_:T) => U) => ∑(t : T) => S(t)
-    Pair = ("λ", ("U",), ("Bind", "T",
-        ("λ", ("Π", ("Var", "T"), ("Bind", "_", ("U",))), ("Bind", "S",
-        ("Σ", ("Var", "T"), ("Bind", "t",
-        ("@", ("Var", "S"), ("Var", "t"))))))))
-    print(pretty(Pair))
-    print(pretty(infer({}, Pair)))
+#     Pointed = ("Σ", ("U",), ("Bind", "t", ("Var", "t")))
+#     pointed = ("λ", ("U",), ("Bind", "t",
+#         ("λ", ("Var", "t"), ("Bind", "x",
+#             (",", ("Bind", "t'", ("Var", "t'")), ("Var", "t"), ("Var", "x"))))))
+#     Tpointedtest = ("Π", ("U",), ("Bind", "T",
+#         ("Π", ("Var", "T"), ("Bind", "_", Pointed))))
+#     print(pretty(pointed))
+#     Tpointed = infer({}, pointed)
+#     print(pretty(Tpointed))
+#     print(pretty(Tpointedtest))
+#     conv(Tpointed, Tpointedtest, ("U",))
 
-    snd = ("λ", ("U",), ("Bind", "T",
-        ("λ", ("Π", ("Var", "T"), ("Bind", "_", ("U",))), ("Bind", "S",
-        ("λ", ("Σ", ("Var", "T"), ("Bind", "t",
-            ("@", ("Var", "S"), ("Var", "t")))), ("Bind", "p",
-        ("snd", ("Var", "p"))))))))
-    print(pretty(snd))
-    print(pretty(infer({}, snd)))
+#     # λ(T : U) (S : ∏(_:T) => U) => ∑(t : T) => S(t)
+#     Pair = ("λ", ("U",), ("Bind", "T",
+#         ("λ", ("Π", ("Var", "T"), ("Bind", "_", ("U",))), ("Bind", "S",
+#         ("Σ", ("Var", "T"), ("Bind", "t",
+#         ("@", ("Var", "S"), ("Var", "t"))))))))
+#     print(pretty(Pair))
+#     print(pretty(infer({}, Pair)))
 
-    corr = OneOneCorr(("Var", "A"), ("Var", "A"))
-    print(pretty(corr))
-    print(pretty(infer({'A': ("U",)}, corr)))
+#     snd = ("λ", ("U",), ("Bind", "T",
+#         ("λ", ("Π", ("Var", "T"), ("Bind", "_", ("U",))), ("Bind", "S",
+#         ("λ", ("Σ", ("Var", "T"), ("Bind", "t",
+#             ("@", ("Var", "S"), ("Var", "t")))), ("Bind", "p",
+#         ("snd", ("Var", "p"))))))))
+#     print(pretty(snd))
+#     print(pretty(infer({}, snd)))
 
-    rf = refl(("Var", "a"))
-    print(pretty(rf))
-    print(pretty(infer({'A': ("U",), 'a': ("Var", "A")}, rf)))
+#     corr = OneOneCorr(("Var", "A"), ("Var", "A"))
+#     print(pretty(corr))
+#     print(pretty(infer({'A': ("U",)}, corr)))
 
-    prf = (",", ("Bind", "_",
-        ("Id", ("Bind", ("Var", "B")),
-        ("Var", "b"), ("Var", "b"))),
-        refl(("Var", "a")), refl(("Var", "b")))
-    print(pretty(prf))
-    typrf = infer({'A': ("U",), 'B': ("U",), 'a': ("Var", "A"), 'b': ("Var", "B")}, prf)
-    print(pretty(typrf))
-    conv(typrf, ("Id",
-        ("Bind", ("Σ", ("Var", "A"), ("Bind", "_u",
-            ("Var", "B")))),
-            (",", ("Bind", "_v", ("Var", "B")), ("Var", "a"), ("Var", "b")),
-            (",", ("Bind", "_w", ("Var", "B")), ("Var", "a"), ("Var", "b"))), ("U",))
+#     rf = refl(("Var", "a"))
+#     print(pretty(rf))
+#     print(pretty(infer({'A': ("U",), 'a': ("Var", "A")}, rf)))
 
-    ap_refl = ("ap", ("Bind", "z", ("Var", "y")), ("Var", "x"), ("Var", "x"),
-        ("ap", ("Bind", ("Var", "x"))))
-    print(pretty(ap_refl))
-    ty_ap_refl = infer({"A":("U",), "x": ("Var", "A"), "y": ("Var", "A")},
-        ap_refl)
-    print(pretty(ty_ap_refl))
-    print(pretty(normalize(ap_refl)))
-    print(pretty(normalize(ty_ap_refl)))
+#     prf = (",", ("Bind", "_",
+#         ("Id", ("Bind", ("Var", "B")),
+#         ("Var", "b"), ("Var", "b"))),
+#         refl(("Var", "a")), refl(("Var", "b")))
+#     print(pretty(prf))
+#     typrf = infer({'A': ("U",), 'B': ("U",), 'a': ("Var", "A"), 'b': ("Var", "B")}, prf)
+#     print(pretty(typrf))
+#     conv(typrf, ("Id",
+#         ("Bind", ("Σ", ("Var", "A"), ("Bind", "_u",
+#             ("Var", "B")))),
+#             (",", ("Bind", "_v", ("Var", "B")), ("Var", "a"), ("Var", "b")),
+#             (",", ("Bind", "_w", ("Var", "B")), ("Var", "a"), ("Var", "b"))), ("U",))
+
+#     ap_refl = ("ap", ("Bind", "z", ("Var", "y")), ("Var", "x"), ("Var", "x"),
+#         ("ap", ("Bind", ("Var", "x"))))
+#     print(pretty(ap_refl))
+#     ty_ap_refl = infer({"A":("U",), "x": ("Var", "A"), "y": ("Var", "A")},
+#         ap_refl)
+#     print(pretty(ty_ap_refl))
+#     print(pretty(normalize(ap_refl)))
+#     print(pretty(normalize(ty_ap_refl)))

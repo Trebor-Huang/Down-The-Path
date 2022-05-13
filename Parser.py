@@ -38,6 +38,8 @@ def lex(string):
                 string = string[1:]
         else:
             k = 0
+            if string[0] == "\\":
+                k = 1
             while k < len(string) and string[k] in VAR_CHARS:
                 k += 1
             yield string[:k]
@@ -293,6 +295,17 @@ def pretty(expr):
         (_, ty, (_, v, expr)) = expr
         string += "(%s : %s) " % (pretty_Var(v), pretty(ty))
     return (string + "=> " if string else "") + pretty3(expr)
+
+def parse_statement(tokens):
+    match tokens[0]:
+        case "\constant":
+            pass
+        case "\define":
+            pass
+        case "\check":
+            pass
+        case "\conv":
+            pass
 
 if __name__ == "__main__":
     for ex in examples:

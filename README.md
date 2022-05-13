@@ -56,7 +56,7 @@ And of course this one reduces to the one *above* it.
 - [ ] Add typechecking and reduction rules for `ap`.
   - [X] Easy rules for 0,1,∑,∏.
   - [ ] The complicated ones for U. We might need to introduce a couple more primitives (`corrL` and `corrR`). I'm not sure whether this would make it easier.
-- [ ] Symmetries......
+- [ ] Symmetries.
 - [ ] Inductive types.
 - [ ] Higher inductive types.
 - [ ] Inductive families?!
