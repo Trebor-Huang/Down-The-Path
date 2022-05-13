@@ -5,3 +5,6 @@
 
 \infer λ(A : U)(B : Π (a : A) => U)(f : Π (a : A) => B a)(a : A)
     => a {x => B x} f a
+
+\define refl λ(A : U)(a : A) => ap[.a]
+\infer refl 1 *

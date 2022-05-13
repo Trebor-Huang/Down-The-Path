@@ -29,7 +29,7 @@ examples = [
 def lex(string):
     string = string.lstrip()
     while string:
-        if string[0] in "(){}[].:;|,ΣΠλ=/":
+        if string[0] in "(){}[].:;|,ΣΠλ=/*":
             if string[0:2] in ("=>", "=="):
                 yield string[0:2]
                 string = string[2:]
@@ -94,7 +94,10 @@ def parse0(tokens): # vars, consts, parens, Id, ap
                 tokens.pop(0)
             else:
                 raise RuntimeError("Expected ']', got '%s'" % tokens[0])
-            return ("Id", ("Bind", *vs, type), *left, *right, *eqs, fst, snd), tokens
+            return ("Id", ("Bind", *vs, type),
+                ("Telescope", *left),
+                ("Telescope", *right),
+                ("Telescope", *eqs), fst, snd), tokens
         case "ap":
             tokens.pop(0)
             if tokens and tokens[0] == "[":
@@ -111,7 +114,10 @@ def parse0(tokens): # vars, consts, parens, Id, ap
                 tokens.pop(0)
             else:
                 raise RuntimeError("Expected ']', got '%s'" % tokens[0])
-            return ("ap", ("Bind", *vs, type), *left, *right, *eqs), tokens
+            return ("ap", ("Bind", *vs, type),
+                ("Telescope", *left),
+                ("Telescope", *right),
+                ("Telescope", *eqs)), tokens
         case t if r := scope_check(t):
             return r, tokens[1:]
         case _:
@@ -123,17 +129,22 @@ def pretty0(expr):
             return "U"
         case ("Var", var):
             return pretty_Var(var)
-        case ("cons", const):
+        case ("con", const):
             return const
-        case ("Id", ("Bind", *vs, type), *scope, fst, snd):
-            left, right, eqs = (), (), () # tele(scope)
+        case ("Id", ("Bind", *vs, type),
+                ("Telescope", *left),
+                ("Telescope", *right),
+                ("Telescope", *eqs), fst, snd):
             return "Id[%s . %s][%s, %s]" % (
                 pretty_tele(vs, left, right, eqs),
                 pretty(type),
                 pretty(fst),
                 pretty(snd)
             )
-        case ("ap", ("Bind", *vs, type), *scope):
+        case ("ap", ("Bind", *vs, type),
+                ("Telescope", *left),
+                ("Telescope", *right),
+                ("Telescope", *eqs)):
             left, right, eqs = (), (), () # tele(scope)
             return "ap[%s . %s]" % (
                 pretty_tele(vs, left, right, eqs),

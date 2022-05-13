@@ -25,8 +25,11 @@ class Checker:
                 shadowed[k] = self.context[k]
             self.context[k] = v
         yield
-        for k, v in shadowed.items():
-            self.context[k] = v
+        for k in ctx:
+            if k in shadowed:
+                self.context[k] = shadowed[k]
+            else:
+                del self.context[k]
 
     def rewrite(self, expr):
         if self.rewrites:  # User rewrite rules
@@ -130,8 +133,46 @@ class Checker:
                 return self.constants[con]
             case ("U",):
                 return ("U",)  # Type in type.
+            case ("Id", ("Bind", *vars, ty),
+                ("Telescope", *left),
+                ("Telescope", *right),
+                ("Telescope", *eqs), lhs, rhs):
+                tys = self.infer_idScope(vars, left, right, eqs)
+                with self.push({v:t for v, t in zip(vars, tys)}):
+                    self.check(ty, ("U",))
+                self.check(lhs, subst(ty, {v:l for v, l in zip(vars, left)}))
+                self.check(rhs, subst(ty, {v:r for v, r in zip(vars, right)}))
+            case ("ap", ("Bind", *vars, expr),
+                ("Telescope", *left),
+                ("Telescope", *right),
+                ("Telescope", *eqs)):
+                tys = self.infer_idScope(vars, left, right, eqs)
+                with self.push({v:t for v, t in zip(vars, tys)}):
+                    ty = self.infer(expr)
+                return ("Id", ("Bind", *vars, ty),
+                    ("Telescope", *left),
+                    ("Telescope", *right),
+                    ("Telescope", *eqs),
+                    subst(ty, {v:l for v, l in zip(vars, left)}),
+                    subst(ty, {v:r for v, r in zip(vars, right)}))
             case _:
                 raise ValueError("Unexpected term: " + pretty(expr))
+
+    def infer_idScope(self, vars, left, right, eqs):
+        if len(vars) == len(left) == len(right) == len(eqs) == 0:
+            return ()
+        tys = self.infer_idScope(vars[:-1], left[:-1], right[:-1], eqs[:-1])
+        with self.push({v:t for v, t in zip(vars[:-1], tys)}):
+            lty = self.infer(left[-1])
+            rty = self.infer(right[-1])
+            self.conversion(lty, rty, ("U",))
+            self.check(eqs[-1],
+                ("Id", ("Bind", *vars[:-1], lty),
+                    ("Telescope", *left[:-1]),
+                    ("Telescope", *right[:-1]),
+                    ("Telescope", *eqs[:-1]),
+                    left[-1], right[-1]))
+        return tys + (lty,)
 
     def check(self, expr, ty):
         ty1 = self.infer(expr)
@@ -153,7 +194,7 @@ if __name__ == "__main__":
     checker = Checker(constants={
         "0" : ("U",),
         "1" : ("U",),
-        "*" : ("1",),
+        "*" : ("con", "1"),
         "absurd" : ("Π", ("0",), ("Bind", "_", ("Π", ("U",), ("Bind", "T", ("Var", "T")))))
     })
     for command in file_parse(code):
