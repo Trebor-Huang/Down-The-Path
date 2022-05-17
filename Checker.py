@@ -3,14 +3,13 @@ from Parser import pretty, file_parse
 from contextlib import contextmanager
 
 class Checker:
-    def __init__(self, constants=None, rewrites=None):
+    def __init__(self, constants=None):
         """
         Builtin constants are passed in as a dictionary.
         Rewrite rules are passed in as a function.
         """
         self.constants = constants or {}
         self.definitions = {}
-        self.rewrites = rewrites
         self.context = {}
 
     @contextmanager
@@ -31,10 +30,21 @@ class Checker:
             else:
                 del self.context[k]
 
+    @contextmanager
+    def push_def(self, ctx:dict):
+        shadowed = {}
+        for k, v in ctx.items():
+            if k in self.definitions:
+                shadowed[k] = self.context[k]
+            self.definitions[k] = v
+        yield
+        for k in ctx:
+            if k in shadowed:
+                self.definitions[k] = shadowed[k]
+            else:
+                del self.definitions[k]
+
     def rewrite(self, expr):
-        if self.rewrites:  # User rewrite rules
-            if rexp := self.rewrites(expr) is not None:
-                return rexp
         match expr:
             case ("Var", x):
                 if x not in self.context:
@@ -42,6 +52,12 @@ class Checker:
                         return self.definitions[x]
                     elif x in self.constants:
                         return ("con", x)
+            case ("@", ("λ", _, ("Bind", x, body)), arg):
+                return subst(body, {x:arg})
+            case ("fst", (",", _, fst, _)):
+                return fst
+            case ("snd", (",", _, _, snd)):
+                return snd
 
     def _normalize(self, expr):  # Brutal CBV
         if not isinstance(expr, tuple):
@@ -156,6 +172,31 @@ class Checker:
                     ("Telescope", *eqs),
                     subst(ty, {v:l for v, l in zip(vars, left)}),
                     subst(ty, {v:r for v, r in zip(vars, right)}))
+            case ("trR", ("Bind", *vars, ty),
+                ("Telescope", *left),
+                ("Telescope", *right),
+                ("Telescope", *eqs), lhs):
+                tys = self.infer_idScope(vars, left, right, eqs)
+                with self.push({v:t for v, t in zip(vars, tys)}):
+                    self.check(ty, ("U",))
+                self.check(lhs, subst(ty, {v:l for v, l in zip(vars, left)}))
+                return subst(ty, {v:r for v, r in zip(vars, right)})
+            case ("fillR", ("Bind", *vars, ty),
+                ("Telescope", *left),
+                ("Telescope", *right),
+                ("Telescope", *eqs), lhs):
+                tys = self.infer_idScope(vars, left, right, eqs)
+                with self.push({v:t for v, t in zip(vars, tys)}):
+                    self.check(ty, ("U",))
+                self.check(lhs, subst(ty, {v:l for v, l in zip(vars, left)}))
+                return ("Id", ("Bind", *vars, ty),
+                    ("Telescope", *left),
+                    ("Telescope", *right),
+                    ("Telescope", *eqs), lhs,
+                    ("trR", ("Bind", *vars, ty),
+                        ("Telescope", *left),
+                        ("Telescope", *right),
+                        ("Telescope", *eqs), lhs))
             case _:
                 raise ValueError("Unexpected term: " + pretty(expr))
 
