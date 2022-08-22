@@ -26,7 +26,7 @@ examples = [
     "f fst p q snd fst (p q)",  # f (fst p) q (snd (fst (p q)))
 ]
 
-def lex(string):
+def lex(string:str):
     string = string.lstrip()
     while string:
         if string[0] in "(){}[].:;|,ΣΠλ=/*":

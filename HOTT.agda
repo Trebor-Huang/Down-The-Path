@@ -47,4 +47,13 @@ from A B c = _≈_ ,
                 truncL b (ar .fst) (ar .snd) i)
     where open Corr c
 
-
+Refl : (A : Type) → Corr A A
+Corr._≈_ (Refl A) = _≡_
+Corr.trR (Refl A) a = a
+Corr.fillR (Refl A) a = refl
+Corr.contrR (Refl A) a b p = p
+Corr.truncR (Refl A) a b p i j = p (i ∧ j)
+Corr.trL (Refl A) a = a
+Corr.fillL (Refl A) a = refl
+Corr.contrL (Refl A) a b p = sym p
+Corr.truncL (Refl A) a b p i j = p (~ i ∨ j)
